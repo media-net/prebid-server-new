@@ -3214,7 +3214,7 @@ func TestUpdateBidderTmax(t *testing.T) {
 	}
 }
 
-func TestHasLessDuration(t *testing.T) {
+func TestHasShorterDurationThanTmax(t *testing.T) {
 	var requestTmaxMS int64 = 700
 	requestTmaxNS := requestTmaxMS * int64(time.Millisecond)
 	startTime := time.Date(2023, 5, 30, 1, 0, 0, 0, time.UTC)
@@ -3268,7 +3268,7 @@ func TestHasLessDuration(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			assert.Equal(t, test.expected, hasLessDuration(test.ctx, test.tmaxAdjustments))
+			assert.Equal(t, test.expected, hasShorterDurationThanTmax(test.ctx, test.tmaxAdjustments))
 		})
 	}
 }
