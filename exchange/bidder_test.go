@@ -3214,7 +3214,7 @@ func TestUpdateBidderTmax(t *testing.T) {
 	}
 }
 
-func TestShouldSendBidderRequest(t *testing.T) {
+func TestHasLessDuration(t *testing.T) {
 	var requestTmaxMS int64 = 700
 	requestTmaxNS := requestTmaxMS * int64(time.Millisecond)
 	startTime := time.Date(2023, 5, 30, 1, 0, 0, 0, time.UTC)
@@ -3234,41 +3234,41 @@ func TestShouldSendBidderRequest(t *testing.T) {
 			ctx:             ctx,
 			requestTmax:     requestTmaxMS,
 			tmaxAdjustments: config.TmaxAdjustments{Enabled: true, BidderResponseDurationMin: 0},
-			expected:        true,
+			expected:        false,
 		},
 		{
 			description:     "network-latency-buffer-not-set",
 			ctx:             ctx,
 			requestTmax:     requestTmaxMS,
 			tmaxAdjustments: config.TmaxAdjustments{Enabled: true, BidderResponseDurationMin: 10, BidderNetworkLatencyBuffer: 0},
-			expected:        true,
+			expected:        false,
 		},
 		{
 			description:     "response-preparation-duration-not-set",
 			ctx:             ctx,
 			requestTmax:     requestTmaxMS,
 			tmaxAdjustments: config.TmaxAdjustments{Enabled: true, BidderResponseDurationMin: 10, BidderNetworkLatencyBuffer: 20, PBSResponsePreparationDuration: 0},
-			expected:        true,
+			expected:        false,
 		},
 		{
 			description:     "remaing-duration-greater-than-bidder-response-min",
 			ctx:             ctx,
 			requestTmax:     requestTmaxMS,
 			tmaxAdjustments: config.TmaxAdjustments{Enabled: true, PBSResponsePreparationDuration: 50, BidderNetworkLatencyBuffer: 10, BidderResponseDurationMin: 40},
-			expected:        true,
+			expected:        false,
 		},
 		{
 			description:     "remaing-duration-less-than-bidder-response-min",
 			ctx:             ctx,
 			requestTmax:     requestTmaxMS,
 			tmaxAdjustments: config.TmaxAdjustments{Enabled: true, PBSResponsePreparationDuration: 100, BidderNetworkLatencyBuffer: 10, BidderResponseDurationMin: 500},
-			expected:        false,
+			expected:        true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			assert.Equal(t, test.expected, shouldSendBidderRequest(test.ctx, test.tmaxAdjustments))
+			assert.Equal(t, test.expected, hasLessDuration(test.ctx, test.tmaxAdjustments))
 		})
 	}
 }

@@ -538,7 +538,7 @@ func (bidder *bidderAdapter) doRequestImpl(ctx context.Context, req *adapters.Re
 	bidder.me.RecordOverheadTime(metrics.PreBidder, time.Since(pbsRequestStartTime))
 
 	if tmaxAdjustments != nil && tmaxAdjustments.Enabled && tmaxAdjustments.BidderResponseDurationMin > 0 {
-		if !shouldSendBidderRequest(&bidderTmaxCtx{ctx}, *tmaxAdjustments) {
+		if hasLessDuration(&bidderTmaxCtx{ctx}, *tmaxAdjustments) {
 			return &httpCallInfo{
 				request: req,
 				err:     errTmaxTimeout,
@@ -759,7 +759,7 @@ func getBidderTmax(ctx bidderTmaxContext, requestTmaxMS int64, tmaxAdjustments c
 	return requestTmaxMS
 }
 
-func shouldSendBidderRequest(ctx bidderTmaxContext, tmaxAdjustments config.TmaxAdjustments) bool {
+func hasLessDuration(ctx bidderTmaxContext, tmaxAdjustments config.TmaxAdjustments) bool {
 	if tmaxAdjustments.Enabled &&
 		tmaxAdjustments.BidderResponseDurationMin > 0 &&
 		tmaxAdjustments.BidderNetworkLatencyBuffer != 0 &&
@@ -768,8 +768,8 @@ func shouldSendBidderRequest(ctx bidderTmaxContext, tmaxAdjustments config.TmaxA
 			overheadNS := time.Duration(tmaxAdjustments.BidderNetworkLatencyBuffer+tmaxAdjustments.PBSResponsePreparationDuration) * time.Millisecond
 			bidderTmax := deadline.Add(-overheadNS)
 			remainingDuration := ctx.Until(bidderTmax).Milliseconds()
-			return !(remainingDuration < int64(tmaxAdjustments.BidderResponseDurationMin))
+			return remainingDuration < int64(tmaxAdjustments.BidderResponseDurationMin)
 		}
 	}
-	return true
+	return false
 }
