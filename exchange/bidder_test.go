@@ -3274,25 +3274,72 @@ func TestHasShorterDurationThanTmax(t *testing.T) {
 }
 
 func TestDoRequestImplWithTmax(t *testing.T) {
-	d1 := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
-	d2 := time.Date(2023, 1, 1, 0, 0, 0, int(20*time.Millisecond), time.UTC)
-
-	ctx, cancelFunc := context.WithDeadline(context.Background(), d1)
-	defer cancelFunc()
+	respStatus := 200
+	respBody := "{\"bid\":false}"
+	server := httptest.NewServer(mockHandler(respStatus, "getBody", respBody))
+	defer server.Close()
+	requestStartTime := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	bidRequest := adapters.RequestData{
 		Method: "POST",
-		Uri:    "test.url.com",
+		Uri:    server.URL,
 		Body:   []byte(`{"id":"this-id","app":{"publisher":{"id":"pub-id"}}}`),
 	}
 
 	bidderAdapter := bidderAdapter{
-		me: &metricsConfig.NilMetricsEngine{},
+		me:     &metricsConfig.NilMetricsEngine{},
+		Client: server.Client(),
 	}
 	logger := func(msg string, args ...interface{}) {}
 
-	tmaxAdjustments := &config.TmaxAdjustments{Enabled: true, PBSResponsePreparationDuration: 100, BidderNetworkLatencyBuffer: 10, BidderResponseDurationMin: 5000}
+	tests := []struct {
+		ctxDeadline     time.Time
+		description     string
+		tmaxAdjustments *config.TmaxAdjustments
+		assertFn        func(err error)
+	}{
+		{
+			ctxDeadline:     time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
+			description:     "returns-tmax-timeout-error",
+			tmaxAdjustments: &config.TmaxAdjustments{Enabled: true, PBSResponsePreparationDuration: 100, BidderNetworkLatencyBuffer: 10, BidderResponseDurationMin: 5000},
+			assertFn:        func(err error) { assert.Equal(t, errTmaxTimeout, err) },
+		},
+		{
+			ctxDeadline:     time.Now().Add(5 * time.Second),
+			description:     "remaining-duration-greater-than-tmax-min",
+			tmaxAdjustments: &config.TmaxAdjustments{Enabled: true, PBSResponsePreparationDuration: 100, BidderNetworkLatencyBuffer: 10, BidderResponseDurationMin: 100},
+			assertFn:        func(err error) { assert.Nil(t, err) },
+		},
+		{
+			description:     "tmax-disabled",
+			tmaxAdjustments: &config.TmaxAdjustments{Enabled: false},
+			assertFn:        func(err error) { assert.Nil(t, err) },
+		},
+		{
+			description:     "tmax-BidderResponseDurationMin-not-set",
+			tmaxAdjustments: &config.TmaxAdjustments{Enabled: true, BidderResponseDurationMin: 0},
+			assertFn:        func(err error) { assert.Nil(t, err) },
+		},
+		{
+			description:     "tmax-is-nil",
+			tmaxAdjustments: nil,
+			assertFn:        func(err error) { assert.Nil(t, err) },
+		},
+	}
+	for _, test := range tests {
+		var (
+			ctx      context.Context
+			cancelFn context.CancelFunc
+		)
 
-	httpCallInfo := bidderAdapter.doRequestImpl(ctx, &bidRequest, logger, d2, tmaxAdjustments)
-	assert.Equal(t, errTmaxTimeout, httpCallInfo.err)
+		if test.ctxDeadline.IsZero() {
+			ctx = context.Background()
+		} else {
+			ctx, cancelFn = context.WithDeadline(context.Background(), test.ctxDeadline)
+			defer cancelFn()
+		}
+
+		httpCallInfo := bidderAdapter.doRequestImpl(ctx, &bidRequest, logger, requestStartTime, test.tmaxAdjustments)
+		test.assertFn(httpCallInfo.err)
+	}
 }
