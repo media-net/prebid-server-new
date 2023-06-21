@@ -139,7 +139,7 @@ func (bidder *bidderAdapter) requestBid(ctx context.Context, bidderRequest Bidde
 	if len(bidderRequest.BidRequest.Imp) > 0 {
 		// Reducing the amount of time bidders have to compensate for the processing time used by PBS to fetch a stored request (if needed), validate the OpenRTB request and split it into multiple requests sanitized for each bidder
 		// As well as for the time needed by PBS to prepare the auction response
-		if bidRequestOptions.tmaxAdjustments != nil && bidRequestOptions.tmaxAdjustments.Enabled && bidRequestOptions.tmaxAdjustments.BidderResponseDurationMin != 0 {
+		if bidRequestOptions.tmaxAdjustments != nil && bidRequestOptions.tmaxAdjustments.Enabled && bidRequestOptions.tmaxAdjustments.BidderResponseDurationMin > 0 {
 			bidderRequest.BidRequest.TMax = getBidderTmax(&bidderTmaxCtx{ctx}, bidderRequest.BidRequest.TMax, *bidRequestOptions.tmaxAdjustments)
 		}
 		reqData, errs = bidder.Bidder.MakeRequests(bidderRequest.BidRequest, reqInfo)
@@ -750,8 +750,8 @@ func (b *bidderTmaxCtx) Until(t time.Time) time.Duration {
 
 func getBidderTmax(ctx bidderTmaxContext, requestTmaxMS int64, tmaxAdjustments config.TmaxAdjustments) int64 {
 	if tmaxAdjustments.Enabled &&
-		tmaxAdjustments.BidderResponseDurationMin != 0 &&
-		(tmaxAdjustments.BidderNetworkLatencyBuffer != 0 || tmaxAdjustments.PBSResponsePreparationDuration != 0) {
+		tmaxAdjustments.BidderResponseDurationMin > 0 &&
+		(tmaxAdjustments.BidderNetworkLatencyBuffer > 0 || tmaxAdjustments.PBSResponsePreparationDuration > 0) {
 		if deadline, ok := ctx.Deadline(); ok {
 			return ctx.RemainingDurationMS(deadline) - int64(tmaxAdjustments.BidderNetworkLatencyBuffer) - int64(tmaxAdjustments.PBSResponsePreparationDuration)
 		}
@@ -762,8 +762,8 @@ func getBidderTmax(ctx bidderTmaxContext, requestTmaxMS int64, tmaxAdjustments c
 func hasShorterDurationThanTmax(ctx bidderTmaxContext, tmaxAdjustments config.TmaxAdjustments) bool {
 	if tmaxAdjustments.Enabled &&
 		tmaxAdjustments.BidderResponseDurationMin > 0 &&
-		tmaxAdjustments.BidderNetworkLatencyBuffer != 0 &&
-		tmaxAdjustments.PBSResponsePreparationDuration != 0 {
+		tmaxAdjustments.BidderNetworkLatencyBuffer > 0 &&
+		tmaxAdjustments.PBSResponsePreparationDuration > 0 {
 		if deadline, ok := ctx.Deadline(); ok {
 			overheadNS := time.Duration(tmaxAdjustments.BidderNetworkLatencyBuffer+tmaxAdjustments.PBSResponsePreparationDuration) * time.Millisecond
 			bidderTmax := deadline.Add(-overheadNS)
