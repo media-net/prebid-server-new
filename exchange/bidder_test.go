@@ -3230,6 +3230,13 @@ func TestHasShorterDurationThanTmax(t *testing.T) {
 		expected        bool
 	}{
 		{
+			description:     "tmax-disabled",
+			ctx:             ctx,
+			requestTmax:     requestTmaxMS,
+			tmaxAdjustments: config.TmaxAdjustments{Enabled: false},
+			expected:        false,
+		},
+		{
 			description:     "bidder-response-duration-min-not-set",
 			ctx:             ctx,
 			requestTmax:     requestTmaxMS,
