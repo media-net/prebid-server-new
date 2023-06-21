@@ -3273,7 +3273,7 @@ func TestHasShorterDurationThanTmax(t *testing.T) {
 	}
 }
 
-func TestBidderTmaxTimeout(t *testing.T) {
+func TestDoRequestImplWithTmax(t *testing.T) {
 	d1 := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
 	d2 := time.Date(2023, 1, 1, 0, 0, 0, int(20*time.Millisecond), time.UTC)
 
